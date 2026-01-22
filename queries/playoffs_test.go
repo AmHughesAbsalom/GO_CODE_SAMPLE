@@ -1,0 +1,287 @@
+package queries
+
+import (
+	"database/sql"
+	"errors"
+	"testing"
+
+	"AmHughesAbsalom/GO_CODE_SAMPLE.git/models"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+)
+
+type PlayoffsTestSuite struct {
+	suite.Suite
+	db   *sqlx.DB
+	mock sqlmock.Sqlmock
+	conn *PlayoffsDBConnection
+}
+
+// RUNS BEFORE EACH TEST
+func (suite *PlayoffsTestSuite) SetupTest() {
+	mockDB, mock, err := sqlmock.New()
+	require.NoError(suite.T(), err)
+
+	suite.db = sqlx.NewDb(mockDB, "sqlmock")
+	suite.mock = mock
+	suite.conn = &PlayoffsDBConnection{DB: suite.db}
+}
+
+func (suite *PlayoffsTestSuite) TearDownTest() {
+	suite.db.Close()
+}
+
+// TESTING CREATE PLAYOFFS FUNCTIONALITY
+func (suite *PlayoffsTestSuite) TestCreatePlayoffs_SeasonAlreadyExists() {
+	season := "2023-2024"
+	conferences := []string{"East", "West"}
+	limit := 8
+
+	suite.mock.ExpectBegin()
+	suite.mock.ExpectQuery(`SELECT COUNT\(\*\) AS count FROM playoffs WHERE season = \$1`).
+		WithArgs(season).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	suite.mock.ExpectRollback()
+
+	err := suite.conn.CreatePlayoffs(conferences, season, limit)
+
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "this season already exists")
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+// TESTING INVALID NUMBER OF CONFERENCES
+func (suite *PlayoffsTestSuite) TestCreatePlayoffs_InvalidNumberOfConferences() {
+	season := "2023-2024"
+	conferences := []string{"East", "West", "North"}
+	limit := 8
+
+	suite.mock.ExpectBegin()
+	suite.mock.ExpectQuery(`SELECT COUNT\(\*\) AS count FROM playoffs WHERE season = \$1`).
+		WithArgs(season).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	suite.mock.ExpectRollback()
+
+	err := suite.conn.CreatePlayoffs(conferences, season, limit)
+
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "invalid number of conferences")
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+// TESTING LIST PLAYOFFS FUNCTIONALITY
+func (suite *PlayoffsTestSuite) TestListPlayoffs_Success() {
+	season := "2023-2024"
+	playoffsID := uuid.New()
+	teamID1 := uuid.New()
+	teamID2 := uuid.New()
+
+	// Mock rounds query
+	roundsRows := sqlmock.NewRows([]string{"fixture_round"}).
+		AddRow(1).
+		AddRow(2)
+
+	suite.mock.ExpectQuery(`SELECT fixture_round FROM playoffs`).
+		WithArgs(season).
+		WillReturnRows(roundsRows)
+
+	// Mock game count for round 1
+	countRows1 := sqlmock.NewRows([]string{"fixture_round", "game_count"}).
+		AddRow(1, "1")
+
+	suite.mock.ExpectQuery(`SELECT fixture_round, game_count`).
+		WithArgs(season, 1).
+		WillReturnRows(countRows1)
+
+	// Mock playoffs for round 1, game 1
+	playoffsRows1 := sqlmock.NewRows([]string{
+		"playoffs_id", "fixture_round", "game_count", "game_round",
+		"home_team_id", "home_team_name", "home_team_url", "players_in_home_id",
+		"away_team_id", "away_team_name", "away_team_url", "players_in_away_id",
+		"season", "winner",
+	}).AddRow(
+		playoffsID, 1, "1", "1",
+		teamID1, "Team1", "url1", uuid.New(),
+		teamID2, "Team2", "url2", uuid.New(),
+		season, nil,
+	)
+
+	suite.mock.ExpectQuery(`SELECT \* FROM playoffs WHERE season`).
+		WithArgs(season, 1, "1").
+		WillReturnRows(playoffsRows1)
+
+	// Mock game count for round 2
+	countRows2 := sqlmock.NewRows([]string{"fixture_round", "game_count"}).
+		AddRow(2, "FINAL")
+
+	suite.mock.ExpectQuery(`SELECT fixture_round, game_count`).
+		WithArgs(season, 2).
+		WillReturnRows(countRows2)
+
+	// Mock playoffs for round 2 final
+	playoffsRows2 := sqlmock.NewRows([]string{
+		"playoffs_id", "fixture_round", "game_count", "game_round",
+		"home_team_id", "home_team_name", "home_team_url", "players_in_home_id",
+		"away_team_id", "away_team_name", "away_team_url", "players_in_away_id",
+		"season", "winner",
+	}).AddRow(
+		playoffsID, 2, "FINAL", "1",
+		teamID1, "Team1", "url1", uuid.New(),
+		uuid.Nil, "", "", uuid.New(),
+		season, nil,
+	)
+
+	suite.mock.ExpectQuery(`SELECT \* FROM playoffs WHERE season`).
+		WithArgs(season, 2, "FINAL").
+		WillReturnRows(playoffsRows2)
+
+	result, err := suite.conn.ListPlayoffs(season)
+
+	assert.NoError(suite.T(), err)
+	assert.Len(suite.T(), result, 2)
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+// TestListPlayoffs_NoRows tests when no playoffs exist
+func (suite *PlayoffsTestSuite) TestListPlayoffs_NoRows() {
+	season := "2023-2024"
+
+	suite.mock.ExpectQuery(`SELECT fixture_round FROM playoffs`).
+		WithArgs(season).
+		WillReturnError(sql.ErrNoRows)
+
+	result, err := suite.conn.ListPlayoffs(season)
+
+	assert.NoError(suite.T(), err)
+	assert.Empty(suite.T(), result)
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+func (suite *PlayoffsTestSuite) TestUpdatePlayoffs_NoRowsAffected() {
+	playoffsID := uuid.New()
+	homeTeamID := uuid.New()
+	season := "2023-2024"
+
+	playoffs := PlayoffsModelReqQuery{
+		PlayoffsId:   playoffsID,
+		FixtureRound: 1,
+		GameCount:    "1",
+		Winner:       homeTeamID,
+		Season:       season,
+	}
+
+	suite.mock.ExpectBegin()
+	suite.mock.ExpectExec(`UPDATE playoffs SET winner = \$1 WHERE playoffs_id = \$2`).
+		WithArgs(homeTeamID, playoffsID).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	suite.mock.ExpectRollback()
+
+	err := suite.conn.UpdatePlayoffs(playoffsID, playoffs)
+
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "failed to update the requested row")
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+// TestUpdatePlayoffsToNull_Success tests successful null update
+func (suite *PlayoffsTestSuite) TestUpdatePlayoffsToNull_Success() {
+	playoffsID := uuid.New()
+	teamID := uuid.New()
+	season := "2023-2024"
+	round := 1
+
+	suite.mock.ExpectBegin()
+
+	suite.mock.ExpectExec(`UPDATE playoffs SET winner = \$1 WHERE playoffs_id = \$2`).
+		WithArgs(nil, playoffsID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	homeWinnerRows := sqlmock.NewRows([]string{"winner"})
+	suite.mock.ExpectQuery(`SELECT winner FROM playoffs WHERE winner = \$1`).
+		WithArgs(teamID, season, round).
+		WillReturnRows(homeWinnerRows)
+
+	awayWinnerRows := sqlmock.NewRows([]string{"winner"})
+	suite.mock.ExpectQuery(`SELECT winner FROM playoffs WHERE winner = \$1`).
+		WithArgs(teamID, season, round).
+		WillReturnRows(awayWinnerRows)
+
+	suite.mock.ExpectCommit()
+
+	err := suite.conn.UpdatePlayoffsToNull(playoffsID, round, teamID, season)
+
+	assert.NoError(suite.T(), err)
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+func (suite *PlayoffsTestSuite) TestDeletePlayoffs_Success() {
+	season := "2023-2024"
+
+	suite.mock.ExpectExec(`DELETE FROM playoffs WHERE season = \$1`).
+		WithArgs(season).
+		WillReturnResult(sqlmock.NewResult(0, 5))
+
+	err := suite.conn.DeletePlayoffs(season)
+
+	assert.NoError(suite.T(), err)
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+// TestDeletePlayoffs_NoRowsDeleted tests deletion when no records exist
+func (suite *PlayoffsTestSuite) TestDeletePlayoffs_NoRowsDeleted() {
+	season := "2023-2024"
+
+	suite.mock.ExpectExec(`DELETE FROM playoffs WHERE season = \$1`).
+		WithArgs(season).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	err := suite.conn.DeletePlayoffs(season)
+
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "could not delete the requested records")
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+// TestDeletePlayoffs_DatabaseError tests deletion with database error
+func (suite *PlayoffsTestSuite) TestDeletePlayoffs_DatabaseError() {
+	season := "2023-2024"
+
+	suite.mock.ExpectExec(`DELETE FROM playoffs WHERE season = \$1`).
+		WithArgs(season).
+		WillReturnError(errors.New("database error"))
+
+	err := suite.conn.DeletePlayoffs(season)
+
+	assert.Error(suite.T(), err)
+	assert.Contains(suite.T(), err.Error(), "database error")
+	assert.NoError(suite.T(), suite.mock.ExpectationsWereMet())
+}
+
+// TESTS THE reverseTeam HELPER FUNCTION
+func TestReverseTeam(t *testing.T) {
+	team1 := models.StandingsModel{TeamName: "Team1"}
+	team2 := models.StandingsModel{TeamName: "Team2"}
+	team3 := models.StandingsModel{TeamName: "Team3"}
+
+	input := []models.StandingsModel{team1, team2, team3}
+	result := reverseTeam(input)
+
+	assert.Equal(t, "Team3", result[0].TeamName)
+	assert.Equal(t, "Team2", result[1].TeamName)
+	assert.Equal(t, "Team1", result[2].TeamName)
+
+	// Ensuring original slice is not modified
+	assert.Equal(t, "Team1", input[0].TeamName)
+	assert.Equal(t, "Team2", input[1].TeamName)
+	assert.Equal(t, "Team3", input[2].TeamName)
+}
+
+// runs the test suite
+func TestPlayoffsTestSuite(t *testing.T) {
+	suite.Run(t, new(PlayoffsTestSuite))
+}
