@@ -1,7 +1,7 @@
 <h1> Tournament Bracket</h1>
 
 ![alt](https://github.com/AmHughesAbsalom/GO_CODE_SAMPLE/blob/main/assets/ROAD_TO_PLAYOFSS_4-03.jpg?raw=true)
-This code implements a sports playoffs/tournament bracket management system with database operations. Here's what it does:
+This code implements a sports playoffs/tournament bracket management system with database operations. The working mechanism is as follows:
 
 <h2> Core Functionality</h2> 
 Creates tournament brackets - The CreatePlayoffs method generates elimination-style playoff brackets based on:
