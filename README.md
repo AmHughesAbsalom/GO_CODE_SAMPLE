@@ -1,5 +1,6 @@
 <h1> Tournament Bracket</h1>
 
+<img src="../GO_CODE_SAMPLE/assets/ROAD_TO_PLAYOFSS_4-03.jpg" alt="">
 This code implements a sports playoffs/tournament bracket management system with database operations. Here's what it does:
 <h2> Core Functionality</h2> 
 Creates tournament brackets - The CreatePlayoffs method generates elimination-style playoff brackets based on:
@@ -31,6 +32,7 @@ Creates tournament brackets - The CreatePlayoffs method generates elimination-st
 <b>ListPlayoffs:</b> Retrieves playoff data organized as a 3D structure: [rounds][fixtures][games]
 
 <b>UpdatePlayoffs:</b> Records game winners and automatically:
+
 <ul style="line-height: 2.5;">
   <li>Marks the winner in the database</li>
   <li>Advances winning teams to the next round</li>
@@ -40,6 +42,7 @@ Creates tournament brackets - The CreatePlayoffs method generates elimination-st
 <b>UpdatePlayoffsToNull:</b> Removes the specified team that may have been either intentionally or accidentally updated to the winners(next round) section hence reverting it back to null.
 
 <b>DeletePlayoffs:</b> Removes all playoff records for a season
+
 <h3>Technical Details</h3>
 <ul style="line-height: 2.5;">
   <li>Uses PostgreSQL with transactions for data consistency</li>
