@@ -1,42 +1,52 @@
+<h1> Tournament Bracket</h1>
+
 This code implements a sports playoffs/tournament bracket management system with database operations. Here's what it does:
-Core Functionality
+<h2> Core Functionality</h2> 
 Creates tournament brackets - The CreatePlayoffs method generates elimination-style playoff brackets based on:
 
-Number of conferences (1, 2, 4, or 8)
-Teams per conference (the limit parameter)
-Season identifier
+<ul style="line-height: 2.5;">
+  <li>Number of conferences (1, 2, 4, or 8)</li>
+  <li> Teams per conference (the limit parameter)</li>
+  <li>Season identifier</li>
+</ul>
 
-Tournament Structure:
+<h3>Tournament Structure:</h3>
+<ul style="line-height: 2.5;">
+  <li>Uses best-of-3 game series for each matchup</li>
+  <li>Teams are seeded by their standings (points/ranking)</li>
+  <li>Higher seeds face lower seeds (1st vs last, 2nd vs 2nd-to-last, etc.)</li>
+  <li>Winners advance through rounds until reaching the finals</li>
+</ul>
 
-Uses best-of-3 game series for each matchup
-Teams are seeded by their standings (points/ranking)
-Higher seeds face lower seeds (1st vs last, 2nd vs 2nd-to-last, etc.)
-Winners advance through rounds until reaching the finals
+<h3>Key Operations</h3>
+<b>CreatePlayoffs:</b> Generates the entire bracket structure by:
+<ul style="line-height: 2.5;">
+  <li>Validating the season doesn't already have playoffs</li>
+  <li>Fetching top teams from standings table</li>
+  <li>Pairing teams strategically (reversing away teams to match high vs low seeds)</li>
+  <li>Creating database records for all games across all rounds</li>
+  <li>Initially only populating first-round matchups with team details; later rounds start with placeholder UUIDs</li>
+</ul>
 
-Key Operations
-CreatePlayoffs: Generates the entire bracket structure by:
+<b>ListPlayoffs:</b> Retrieves playoff data organized as a 3D structure: [rounds][fixtures][games]
 
-Validating the season doesn't already have playoffs
-Fetching top teams from standings table
-Pairing teams strategically (reversing away teams to match high vs low seeds)
-Creating database records for all games across all rounds
-Initially only populating first-round matchups with team details; later rounds start with placeholder UUIDs
+<b>UpdatePlayoffs:</b> Records game winners and automatically:
+<ul style="line-height: 2.5;">
+  <li>Marks the winner in the database</li>
+  <li>Advances winning teams to the next round</li>
+  <li>Updates subsequent matchups when both teams in a pairing have won</li>
+</ul>
 
-ListPlayoffs: Retrieves playoff data organized as a 3D structure: [rounds][fixtures][games]
-UpdatePlayoffs: Records game winners and automatically:
+<b>UpdatePlayoffsToNull:</b> Clears winner data (likely for corrections)
 
-Marks the winner in the database
-Advances winning teams to the next round
-Updates subsequent matchups when both teams in a pairing have won
-
-UpdatePlayoffsToNull: Clears winner data (likely for corrections)
-DeletePlayoffs: Removes all playoff records for a season
-Technical Details
-
-Uses PostgreSQL with transactions for data consistency
-Employs the sqlx library for database operations
-Generates UUIDs for unique identifiers
-Handles bracket progression logic automatically as games complete
-Includes extensive error handling and validation
+<b>DeletePlayoffs:</b> Removes all playoff records for a season
+<h3>Technical Details</h3>
+<ul style="line-height: 2.5;">
+  <li>Uses PostgreSQL with transactions for data consistency</li>
+  <li>Employs the sqlx library for database operations</li>
+  <li>Generates UUIDs for unique identifiers</li>
+  <li>Handles bracket progression logic automatically as games complete</li>
+  <li>Includes extensive error handling and validation</li>
+</ul>
 
 The system essentially automates the complex logic of managing tournament brackets, from initial seeding through final championship matchup.
