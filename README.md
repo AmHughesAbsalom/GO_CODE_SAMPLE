@@ -37,7 +37,7 @@ Creates tournament brackets - The CreatePlayoffs method generates elimination-st
   <li>Updates subsequent matchups when both teams in a pairing have won</li>
 </ul>
 
-<b>UpdatePlayoffsToNull:</b> Removes the specified team that may be either intentionally or accidentally be updated to the winners(next round) section.
+<b>UpdatePlayoffsToNull:</b> Removes the specified team that may have been either intentionally or accidentally updated to the winners(next round) section.
 
 <b>DeletePlayoffs:</b> Removes all playoff records for a season
 <h3>Technical Details</h3>
