@@ -1,7 +1,6 @@
 package queries
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -110,7 +109,7 @@ func (p *PlayoffsDBConnection) CreatePlayoffs(conferences []string, season strin
 			return err
 		}
 		if len(homeTeams) != len(awayTeams) {
-			err := errors.New("The number of teams in both conferences are not equal " + conferences[0] + "has " + fmt.Sprint(len(homeTeams)) + "qualified teams where as" + conferences[1] + "has " + fmt.Sprint(len(awayTeams)) + " qualified teams")
+			err := errors.New("Invalid number of teams in the conference " + conferences[0] + ". The number of teams must be even to create home and away teams for the playoffs.")
 			return err
 		}
 		reversedAwayTeams := reverseTeam(awayTeams)
@@ -280,7 +279,7 @@ func (p *PlayoffsDBConnection) CreatePlayoffs(conferences []string, season strin
 			return err
 		}
 		if len(homeTeams) != len(awayTeams) {
-			err := errors.New("The number of teams in both conferences are not equal " + conferences[0] + "has " + fmt.Sprint(len(homeTeams)) + "qualified teams where as" + conferences[1] + "has " + fmt.Sprint(len(awayTeams)) + " qualified teams")
+			err := errors.New("Ivalid number of teams in the conferences " + conferences[0] + " and " + conferences[1] + ". The number of teams in both conferences must be equal to create home and away teams for the playoffs.")
 			return err
 		}
 		reversedAwayTeams := reverseTeam(awayTeams)
@@ -958,10 +957,7 @@ func (p *PlayoffsDBConnection) UpdatePlayoffsToNull(playoffsId uuid.UUID, round 
 	}
 
 	defer func() {
-		errRollback := tx.Rollback()
-		if errRollback != nil && errRollback != sql.ErrTxDone {
-			log.Println("failed to rollback transaction in UpdatePlayoffsToNull func: ", errRollback.Error())
-		}
+		_ = tx.Rollback()
 	}()
 
 	sqlRow, err := tx.Exec(query, nil, playoffsId)
