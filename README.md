@@ -1,4 +1,5 @@
 <h1> Tournament Bracket</h1>
+
 ![alt](https://github.com/AmHughesAbsalom/GO_CODE_SAMPLE/blob/main/assets/ROAD_TO_PLAYOFSS_4-03.jpg?raw=true)
 This code implements a sports playoffs/tournament bracket management system with database operations. The working mechanism is as follows:
 
